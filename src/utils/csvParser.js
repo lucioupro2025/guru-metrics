@@ -37,26 +37,28 @@ export const parseCajaReport = (csvContent) => {
         const firstCell = String(row[0]).trim();
 
         // Section Detection
-        if (firstCell.includes("TOTAL VENDIDO POR MÉTODO DE PAGO") || firstCell.includes("TOTAL VENDIDO POR MÃ‰TODO DE PAGO")) {
+        const cellUpper = firstCell.toUpperCase();
+        
+        if (cellUpper.includes("TOTAL VENDIDO POR")) {
             currentSection = 'payments';
             i++; // Skip header "Metodo","Total"
             continue;
         }
-        if (firstCell.includes("ARQUEO DE CAJA")) {
+        if (cellUpper.includes("ARQUEO DE CAJA")) {
             currentSection = 'arqueo';
             continue;
         }
-        if (firstCell.includes("RANKING DE PRODUCTOS VENDIDOS")) {
+        if (cellUpper.includes("RANKING DE PRODUCTOS VENDIDOS")) {
             currentSection = 'ranking';
             i++; // Skip header "Producto","Cantidad Vendida","Recaudacion Estimada"
             continue;
         }
-        if (firstCell.includes("DETALLE DE PEDIDOS")) {
+        if (cellUpper.includes("DETALLE DE PEDIDOS")) {
             currentSection = 'orders';
             i++; // Skip header "ID","Cliente","Monto","Metodo","Estado","Factura Nro","CAE"
             continue;
         }
-        if (firstCell.includes("MÉTRICAS DE DESEMPEÑO") || firstCell.includes("MÃ‰TRICAS DE DESEMPEÃ‘O")) {
+        if (cellUpper.includes("DESEMPE") || cellUpper.includes("TRICAS DE")) {
             currentSection = 'metrics';
             continue;
         }
