@@ -1,0 +1,111 @@
+import Papa from 'papaparse';
+
+/**
+ * Custom parser for "REPORTE DE CIERRE DE CAJA" format
+ */
+export const parseCajaReport = (csvContent) => {
+    const results = Papa.parse(csvContent, {
+        header: false,
+        skipEmptyLines: false // Keep empty lines to detect sections if needed, though we'll check content
+    });
+    
+    const rows = results.data;
+
+    // Check if it's actually a Caja Report
+    if (!rows.length || !String(rows[0][0]).includes("REPORTE DE CIERRE DE CAJA")) {
+        return null;
+    }
+
+    const result = {
+        type: 'caja_report',
+        header: String(rows[0][0]),
+        info: {},
+        metrics: {},
+        payments: [],
+        arqueo: {},
+        ranking: [],
+        orders: [],
+        totalVentasBrutas: 0
+    };
+
+    let currentSection = 'info';
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || (row.length === 1 && !row[0])) continue;
+
+        const firstCell = String(row[0]).trim();
+
+        // Section Detection
+        if (firstCell.includes("TOTAL VENDIDO POR MÉTODO DE PAGO") || firstCell.includes("TOTAL VENDIDO POR MÃ‰TODO DE PAGO")) {
+            currentSection = 'payments';
+            i++; // Skip header "Metodo","Total"
+            continue;
+        }
+        if (firstCell.includes("ARQUEO DE CAJA")) {
+            currentSection = 'arqueo';
+            continue;
+        }
+        if (firstCell.includes("RANKING DE PRODUCTOS VENDIDOS")) {
+            currentSection = 'ranking';
+            i++; // Skip header "Producto","Cantidad Vendida","Recaudacion Estimada"
+            continue;
+        }
+        if (firstCell.includes("DETALLE DE PEDIDOS")) {
+            currentSection = 'orders';
+            i++; // Skip header "ID","Cliente","Monto","Metodo","Estado","Factura Nro","CAE"
+            continue;
+        }
+        if (firstCell.includes("MÉTRICAS DE DESEMPEÑO") || firstCell.includes("MÃ‰TRICAS DE DESEMPEÃ‘O")) {
+            currentSection = 'metrics';
+            continue;
+        }
+
+        // Parse sections
+        if (currentSection === 'info' || currentSection === 'metrics') {
+            if (row.length >= 2) {
+                const key = String(row[0]).trim();
+                const value = String(row[1]).trim();
+                if (currentSection === 'info') result.info[key] = value;
+                else result.metrics[key] = value;
+            }
+        } else if (currentSection === 'payments') {
+            if (firstCell === "TOTAL VENTAS BRUTAS") {
+                result.totalVentasBrutas = parseFloat(row[1]) || 0;
+            } else if (row.length >= 2) {
+                result.payments.push({
+                    metodo: firstCell,
+                    total: parseFloat(row[1]) || 0
+                });
+            }
+        } else if (currentSection === 'arqueo') {
+            if (row.length >= 2) {
+                const val = parseFloat(row[1]);
+                result.arqueo[firstCell] = isNaN(val) ? row[1] : val;
+            }
+        } else if (currentSection === 'ranking') {
+            if (row.length >= 3) {
+                result.ranking.push({
+                    producto: firstCell,
+                    cantidad: parseInt(row[1]) || 0,
+                    recaudacion: parseFloat(row[2]) || 0
+                });
+            }
+        } else if (currentSection === 'orders') {
+            if (row.length >= 3) {
+                result.orders.push({
+                    ID: firstCell,
+                    Cliente: String(row[1]),
+                    Monto: parseFloat(row[2]) || 0,
+                    Metodo: String(row[3] || ''),
+                    Estado: String(row[4] || ''),
+                    Factura: String(row[5] || ''),
+                    CAE: String(row[6] || '')
+                });
+            }
+        }
+    }
+
+    return result;
+};
+
