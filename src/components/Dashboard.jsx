@@ -45,7 +45,8 @@ const Dashboard = ({ data, onReset }) => {
                 arqueo: data.arqueo,
                 ranking: data.ranking,
                 orders: data.orders,
-                metrics: data.metrics
+                metrics: data.metrics,
+                info: data.info
             };
         }
 
@@ -168,6 +169,35 @@ const Dashboard = ({ data, onReset }) => {
         });
     }, [data, analytics, pieData]);
 
+    // Data for Mostrador vs Delivery
+    const clientData = useMemo(() => {
+        if (!analytics || !analytics.isCajaReport) return [];
+
+        let mostradorCount = 0;
+        let deliveryCount = 0;
+
+        analytics.orders.forEach(order => {
+            const cliente = String(order.Cliente || '').trim().toLowerCase();
+            if (cliente === 'mostrador' || cliente === '') {
+                mostradorCount++;
+            } else {
+                // If it has a specific name, we assume it's Delivery
+                deliveryCount++;
+            }
+        });
+
+        return [
+            { tipo: 'Mostrador', cantidad: mostradorCount },
+            { tipo: 'Delivery', cantidad: deliveryCount }
+        ];
+    }, [data, analytics, pieData]);
+
+    const tooltipStyle = {
+        contentStyle: { backgroundColor: '#1e1e1e', border: '1px solid var(--glass-border)', borderRadius: '12px', color: '#fff' },
+        itemStyle: { color: '#e0e0e0', fontWeight: 500 },
+        cursor: { fill: 'rgba(255,255,255,0.05)' }
+    };
+
     const mainData = useMemo(() => {
         if (!data) return [];
         return data.type === 'caja_report' ? data.orders : data;
@@ -193,8 +223,16 @@ const Dashboard = ({ data, onReset }) => {
                         <ArrowLeft size={18} />
                     </button>
                     <div>
-                        <h2 style={{ fontSize: '1.5rem', marginBottom: '4px' }}>Análisis de Datos</h2>
-                        <p style={{ fontSize: '0.9rem' }}>Análisis en tiempo real de {analytics.stats.totalRows} registros</p>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '6px' }}>{analytics.isCajaReport ? 'Reporte de Caja' : 'Análisis de Datos'}</h2>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                            {analytics.isCajaReport && analytics.info?.['Periodo de Caja'] && (
+                                <span style={{ marginRight: '12px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '6px' }}>
+                                    <Calendar size={12} style={{ display: 'inline', marginRight: '6px', relativeTop: '2px' }} />
+                                    {analytics.info['Periodo de Caja'].split(' hasta ')[0].split(',')[0]} {/* Simplifying the date string */}
+                                </span>
+                            )}
+                            Análisis en tiempo real de {analytics.stats.totalRows} pedidos
+                        </p>
                     </div>
                 </div>
 
@@ -302,7 +340,7 @@ const Dashboard = ({ data, onReset }) => {
                                                     />
                                                 ))}
                                             </Pie>
-                                            <Tooltip />
+                                            <Tooltip {...tooltipStyle} />
                                             <Legend verticalAlign="bottom" align="center" iconType="circle" />
                                         </PieChart>
                                     </ResponsiveContainer>
@@ -338,7 +376,7 @@ const Dashboard = ({ data, onReset }) => {
                                                 tickLine={false}
                                                 tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
                                             />
-                                            <Tooltip contentStyle={{ borderRadius: '12px' }} />
+                                            <Tooltip {...tooltipStyle} />
                                             <Area
                                                 type="monotone"
                                                 dataKey={analytics.numCols[0]}
@@ -365,7 +403,7 @@ const Dashboard = ({ data, onReset }) => {
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
                                                 <YAxis type="category" dataKey="producto" width={150} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
-                                                <Tooltip contentStyle={{ borderRadius: '12px' }} />
+                                                <Tooltip {...tooltipStyle} />
                                                 <Bar dataKey="cantidad" fill="#bf5af2" radius={[0, 4, 4, 0]} />
                                             </BarChart>
                                         ) : (
@@ -392,7 +430,7 @@ const Dashboard = ({ data, onReset }) => {
                                                     />
                                                 )}
                                                 <Legend />
-                                                <Tooltip />
+                                                <Tooltip {...tooltipStyle} cursor={false} />
                                             </RadarChart>
                                         )}
                                     </ResponsiveContainer>
@@ -402,30 +440,40 @@ const Dashboard = ({ data, onReset }) => {
                             {/* Composed Volume Chart */}
                             {analytics.numCols.length > 0 && (
                                 <ChartCard
-                                    title={analytics.isCajaReport ? "Distribución por Pago" : "Volumen y Densidad"}
-                                    subtitle={analytics.isCajaReport ? "Ventas totales según método" : "Correlación de métricas secundarias"}
+                                    title={analytics.isCajaReport ? "Tipos de Venta (Clientes)" : "Volumen y Densidad"}
+                                    subtitle={analytics.isCajaReport ? "Pedidos en Mostrador vs Delivery" : "Correlación de métricas secundarias"}
                                 >
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <ComposedChart data={analytics.isCajaReport ? analytics.payments : mainData.slice(0, 30).map(row => {
-                                            const clean = (v) => parseFloat(String(v).replace(/[^\d.-]/g, '')) || 0;
-                                            const obj = { ...row };
-                                            analytics.numCols.forEach(c => obj[c] = clean(row[c]));
-                                            return obj;
-                                        })}>
-                                            <XAxis
-                                                dataKey={analytics.isCajaReport ? 'metodo' : (analytics.catCols[0] || 'index')}
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
-                                            />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
-                                            <Tooltip />
-                                            <Legend />
-                                            <Bar dataKey={analytics.isCajaReport ? 'total' : analytics.numCols[0]} fill="#ff9f0a" radius={[10, 10, 0, 0]} barSize={40} />
-                                            {!analytics.isCajaReport && analytics.numCols.length > 1 && (
-                                                <Line type="monotone" dataKey={analytics.numCols[1]} stroke="#30d158" strokeWidth={2} dot={{ r: 4 }} />
-                                            )}
-                                        </ComposedChart>
+                                        {analytics.isCajaReport ? (
+                                            <BarChart data={clientData}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                <XAxis dataKey="tipo" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                                                <Tooltip {...tooltipStyle} />
+                                                <Bar dataKey="cantidad" name="Cantidad de Pedidos" fill="#64d2ff" radius={[6, 6, 0, 0]} barSize={50} />
+                                            </BarChart>
+                                        ) : (
+                                            <ComposedChart data={mainData.slice(0, 30).map(row => {
+                                                const clean = (v) => parseFloat(String(v).replace(/[^\d.-]/g, '')) || 0;
+                                                const obj = { ...row };
+                                                analytics.numCols.forEach(c => obj[c] = clean(row[c]));
+                                                return obj;
+                                            })}>
+                                                <XAxis
+                                                    dataKey={analytics.catCols[0] || 'index'}
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                                                />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                                <Tooltip {...tooltipStyle} />
+                                                <Legend />
+                                                <Bar dataKey={analytics.numCols[0]} fill="#ff9f0a" radius={[10, 10, 0, 0]} barSize={40} />
+                                                {analytics.numCols.length > 1 && (
+                                                    <Line type="monotone" dataKey={analytics.numCols[1]} stroke="#30d158" strokeWidth={2} dot={{ r: 4 }} />
+                                                )}
+                                            </ComposedChart>
+                                        )}
                                     </ResponsiveContainer>
                                 </ChartCard>
                             )}
