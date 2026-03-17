@@ -44,6 +44,7 @@ const Dashboard = ({ data, onReset }) => {
                 payments: data.payments,
                 arqueo: data.arqueo,
                 ranking: data.ranking,
+                repartidores: data.repartidores,
                 orders: data.orders,
                 metrics: data.metrics,
                 info: data.info
@@ -297,10 +298,16 @@ const Dashboard = ({ data, onReset }) => {
                             )}
                             {analytics.isCajaReport && analytics.arqueo && (
                                 <StatsCard
-                                    title="Diferencia de Caja"
-                                    value={!analytics.arqueo.Diferencia && analytics.arqueo.Diferencia !== 0 ? "N/A" : (analytics.arqueo.Diferencia === 0 ? "$0" : `$${analytics.arqueo.Diferencia}`)}
+                                    title="Balance de Arqueo"
+                                    value={
+                                        analytics.arqueo.Diferencia === 0 
+                                            ? "$0" 
+                                            : (analytics.arqueo.Diferencia > 0 
+                                                ? `+$${analytics.arqueo.Diferencia.toLocaleString('es-AR')}` 
+                                                : `-$${Math.abs(analytics.arqueo.Diferencia).toLocaleString('es-AR')}`)
+                                    }
                                     icon={RefreshCw}
-                                    trend={analytics.arqueo.Diferencia > 0 ? 1 : (analytics.arqueo.Diferencia < 0 ? -1 : 0)}
+                                    trend={analytics.arqueo.Diferencia}
                                     trendText={analytics.arqueo.Diferencia === 0 ? "Caja Cuadrada" : (analytics.arqueo.Diferencia > 0 ? "Sobrante" : "Faltante")}
                                 />
                             )}

@@ -24,6 +24,7 @@ export const parseCajaReport = (csvContent) => {
         payments: [],
         arqueo: {},
         ranking: [],
+        repartidores: [],
         orders: [],
         totalVentasBrutas: 0
     };
@@ -55,7 +56,12 @@ export const parseCajaReport = (csvContent) => {
         }
         if (cellUpper.includes("DETALLE DE PEDIDOS")) {
             currentSection = 'orders';
-            i++; // Skip header "ID","Cliente","Monto","Metodo","Estado","Factura Nro","CAE"
+            i++; // Skip header "ID","Cliente","Monto","Metodo","Estado","Repartidor","Factura Nro","CAE"
+            continue;
+        }
+        if (cellUpper.includes("RENDIMIENTO DE REPARTIDORES")) {
+            currentSection = 'repartidores';
+            i++; // Skip header "Repartidor","Envios Realizados"
             continue;
         }
         if (cellUpper.includes("DESEMPE") || cellUpper.includes("TRICAS DE")) {
@@ -93,6 +99,13 @@ export const parseCajaReport = (csvContent) => {
                     recaudacion: parseFloat(row[2]) || 0
                 });
             }
+        } else if (currentSection === 'repartidores') {
+            if (row.length >= 2) {
+                result.repartidores.push({
+                    repartidor: firstCell,
+                    envios: parseInt(row[1]) || 0
+                });
+            }
         } else if (currentSection === 'orders') {
             if (row.length >= 3) {
                 result.orders.push({
@@ -101,10 +114,22 @@ export const parseCajaReport = (csvContent) => {
                     Monto: parseFloat(row[2]) || 0,
                     Metodo: String(row[3] || ''),
                     Estado: String(row[4] || ''),
-                    Factura: String(row[5] || ''),
-                    CAE: String(row[6] || '')
+                    Repartidor: String(row[5] || ''),
+                    Factura: String(row[6] || ''),
+                    CAE: String(row[7] || '')
                 });
             }
+        }
+    }
+
+    // Post-processing for Caja Report
+    if (result.type === 'caja_report') {
+        // The original "Diferencia" in CSV typically compares Real vs Expected Cash,
+        // but users often declare TOTAL money (Cash + Transfers) in "Total Real Declarado".
+        // The true balance is Total Real Declarado minus Total Ventas Brutas.
+        const totalReal = parseFloat(result.arqueo['Total Real Declarado']);
+        if (!isNaN(totalReal) && result.totalVentasBrutas) {
+            result.arqueo.Diferencia = totalReal - result.totalVentasBrutas;
         }
     }
 
